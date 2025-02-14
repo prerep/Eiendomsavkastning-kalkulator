@@ -9,63 +9,26 @@
 <body>
     <h2>Eiendomsavkastningskalkulator</h2>
 
-    <!-- FINN.no henter data -->
-    <form method="post" action="/fetch_finn">
-        <label>Lim inn FINN-lenke:</label>
-        <input type="text" name="finn_url" required>
-        <button type="submit">Hent data</button>
-    </form>
-
-    <!-- Kalkulator skjema -->
     <form method="post" action="/calculate">
         <label>Kjøpspris:</label>
-        <input type="number" name="purchase_price" value="{{ fetched_price if fetched_price else '' }}" required>
+        <input type="number" name="purchase_price" required>
 
         <label>Leieinntekter per måned:</label>
         <input type="number" name="rent_income" required>
 
-        <label>Felleskostnader per måned:</label>
-        <input type="number" name="common_costs" value="{{ fetched_common_costs if fetched_common_costs else '' }}" required>
-
-        <label>Vedlikeholdskostnader per måned:</label>
-        <input type="number" name="maintenance_costs" required>
-
-        <label>Andre driftskostnader per måned:</label>
-        <input type="number" name="other_costs" required>
-
-        <label>Egenkapital investert:</label>
-        <input type="number" name="equity" value="{{ fetched_equity if fetched_equity else '' }}" required>
-
-        <label>Skattesats (%):</label>
-        <input type="number" name="tax_rate">
-        <input type="checkbox" name="include_tax"> Inkluder skatt
-
-        <label>Inflasjonsrate (%):</label>
-        <input type="number" name="inflation_rate">
-        <label>Antall år:</label>
-        <input type="number" name="years">
-        <input type="checkbox" name="include_inflation"> Inkluder inflasjon
-
         <button type="submit">Beregn</button>
     </form>
 
-    <!-- Resultatvisning -->
-    {% if gross_yield %}
-    <div class="result">
-        <h3>Resultater:</h3>
-        <p>Brutto yield: {{ gross_yield }}%</p>
-        <p>Netto yield: {{ net_yield }}%</p>
-        <p>Årlig ROI: {{ roi }}%</p>
-        {% if inflation_adjusted_roi %}
-        <p>Inflasjonsjustert ROI: {{ inflation_adjusted_roi }}%</p>
-        {% endif %}
-    </div>
+    {% if graph_path %}
+    <img src="{{ graph_path }}" alt="ROI Utvikling">
     {% endif %}
 
-    {% if error %}
-    <div class="result" style="background-color: red; color: white;">
-        <p>{{ error }}</p>
-    </div>
-    {% endif %}
+    <h3>Tidligere Beregninger</h3>
+    <ul>
+        {% for calc in previous_calculations %}
+        <li>Kjøpspris: {{ calc[1] }} kr | ROI: {{ calc[12] }}%</li>
+        {% endfor %}
+    </ul>
+
 </body>
 </html>
