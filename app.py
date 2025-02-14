@@ -66,21 +66,23 @@ def fetch_finn():
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Finn kjøpspris
-        price_text = soup.find(string=re.compile(r"\d+\s*\d+ kr"))  # Søker etter tall med "kr"
+        # 🔹 Finn kjøpspris
+        price_text = soup.find(string=re.compile(r"\d+\s*\d+ kr"))  # Søker etter "kr"
         price = int(re.sub(r"\D", "", price_text)) if price_text else ""
 
-        # Finn felleskostnader
+        # 🔹 Finn felleskostnader (søker i flere HTML-strukturer)
         common_costs = ""
-        possible_labels = ["Felleskostnader", "Fellesutgifter"]  # Noen annonser bruker andre ord
-        for label in soup.find_all("dt"):
-            if any(term in label.get_text() for term in possible_labels):
-                value = label.find_next("dd").get_text()
-                common_costs = int(re.sub(r"\D", "", value)) if value else ""
+        possible_labels = ["Felleskostnader", "Fellesutgifter", "Månedlige felleskostnader"]
+        for label in soup.find_all(["dt", "span", "strong"]):
+            text = label.get_text().strip()
+            if any(term in text for term in possible_labels):
+                value = label.find_next("dd") or label.find_next("span")
+                if value:
+                    common_costs = int(re.sub(r"\D", "", value.get_text()))
                 break
 
-        # Beregn egenkapital (EK = 10% av kjøpsprisen)
-        fetched_equity = price * 0.10 if price else ""
+        # 🔹 Beregn EK = 10% av kjøpsprisen
+        fetched_equity = int(price * 0.10) if price else ""
 
         return render_template("index.html",
                                fetched_price=price,
