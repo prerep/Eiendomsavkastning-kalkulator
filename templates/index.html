@@ -34,7 +34,7 @@
         <input type="number" name="other_costs" required>
 
         <label>Egenkapital investert:</label>
-        <input type="number" name="equity" required>
+        <input type="number" name="equity" value="{{ fetched_equity if fetched_equity else '' }}" required>
 
         <label>Skattesats (%):</label>
         <input type="number" name="tax_rate">
