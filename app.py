@@ -1,17 +1,43 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect
 import requests
 from bs4 import BeautifulSoup
 import re
+import sqlite3
+import matplotlib
+matplotlib.use('Agg')  # Unngår GUI-feil på server
+import matplotlib.pyplot as plt
+import os
 
-# Opprett Flask-appobjektet FØR vi bruker @app.route()
 app = Flask(__name__)
+
+# Opprett database for lagring av beregninger
+DB_FILE = "calculations.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS calculations 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  purchase_price REAL, rent_income REAL, common_costs REAL, 
+                  maintenance_costs REAL, other_costs REAL, equity REAL, 
+                  tax_rate REAL, inflation_rate REAL, years INTEGER, 
+                  gross_yield REAL, net_yield REAL, roi REAL, inflation_adjusted_roi REAL)''')
+    conn.commit()
+    conn.close()
+
+init_db()
 
 # Hjemmeside
 @app.route("/")
 def home():
-    return render_template("index.html")
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM calculations ORDER BY id DESC LIMIT 5")  # Henter de siste 5 beregningene
+    previous_calculations = c.fetchall()
+    conn.close()
+    return render_template("index.html", previous_calculations=previous_calculations)
 
-# Beregn avkastning
+# Beregn avkastning og lagre i database
 @app.route("/calculate", methods=["POST"])
 def calculate():
     try:
@@ -44,55 +70,41 @@ def calculate():
             adjusted_price = purchase_price * ((1 + inflation_rate) ** years)
             inflation_adjusted_roi = (net_income / adjusted_price) * 100
 
-        return render_template("index.html",
-                               gross_yield=round(gross_yield, 2),
+        # Lagre beregningen i databasen
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute('''INSERT INTO calculations 
+                     (purchase_price, rent_income, common_costs, maintenance_costs, other_costs, equity, 
+                      tax_rate, inflation_rate, years, gross_yield, net_yield, roi, inflation_adjusted_roi) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (purchase_price, rent_income, common_costs, maintenance_costs, other_costs, equity,
+                   tax_rate, inflation_rate, years, gross_yield, net_yield, roi, inflation_adjusted_roi))
+        conn.commit()
+        conn.close()
+
+        # Generer graf for ROI over tid
+        graph_path = "static/roi_chart.png"
+        years_list = list(range(1, years + 1))
+        roi_list = [(roi * (1 + inflation_rate) ** year) for year in years_list]
+
+        plt.figure(figsize=(6, 4))
+        plt.plot(years_list, roi_list, marker='o', linestyle='-', color='b', label="ROI over tid")
+        plt.xlabel("År")
+        plt.ylabel("ROI (%)")
+        plt.title("ROI Utvikling over Tid")
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(graph_path)
+        plt.close()
+
+        return render_template("index.html", gross_yield=round(gross_yield, 2),
                                net_yield=round(net_yield, 2),
                                roi=round(roi, 2),
-                               inflation_adjusted_roi=round(inflation_adjusted_roi, 2))
+                               inflation_adjusted_roi=round(inflation_adjusted_roi, 2),
+                               graph_path=graph_path)
 
     except ValueError:
         return render_template("index.html", error="Vennligst fyll ut alle feltene med gyldige tall.")
 
-# Hent data fra FINN.no
-@app.route("/fetch_finn", methods=["POST"])
-def fetch_finn():
-    try:
-        finn_url = request.form["finn_url"]
-        headers = {"User-Agent": "Mozilla/5.0"}
-
-        # Hent nettsiden
-        response = requests.get(finn_url, headers=headers)
-        if response.status_code != 200:
-            return render_template("index.html", error="Kunne ikke hente data fra FINN.")
-
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # 🔹 Finn kjøpspris
-        price_text = soup.find(string=re.compile(r"\d+\s*\d+ kr"))  # Søker etter "kr"
-        price = int(re.sub(r"\D", "", price_text)) if price_text else ""
-
-        # 🔹 Finn felleskostnader (søker i flere HTML-strukturer)
-        common_costs = ""
-        possible_labels = ["Felleskostnader", "Fellesutgifter", "Månedlige felleskostnader", "Felleskost/mnd."]
-        for label in soup.find_all(["dt", "span", "strong"]):
-            text = label.get_text().strip()
-            if any(term in text for term in possible_labels):
-                value = label.find_next("dd") or label.find_next("span")
-                if value:
-                    common_costs = int(re.sub(r"\D", "", value.get_text()))
-                break
-
-        # 🔹 Beregn EK = 10% av kjøpsprisen
-        fetched_equity = int(price * 0.10) if price else ""
-
-        return render_template("index.html",
-                               fetched_price=price,
-                               fetched_common_costs=common_costs,
-                               fetched_equity=fetched_equity)
-
-    except Exception as e:
-        return render_template("index.html", error=f"Feil ved henting: {str(e)}")
-
-# 🔹 Sørg for at appen startes riktig
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
