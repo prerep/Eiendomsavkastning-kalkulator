@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eiendomsavkastningskalkulator</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+        input { width: 100%; padding: 8px; margin: 5px 0; }
+        button { background: blue; color: white; padding: 10px; border: none; cursor: pointer; }
+        .result { background: #f0f0f0; padding: 10px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Eiendomsavkastningskalkulator</h2>
+    <form method="post" action="/calculate">
+        <label>Kjøpspris:</label>
+        <input type="number" name="purchase_price" required>
+
+        <label>Leieinntekter per måned:</label>
+        <input type="number" name="rent_income" required>
+
+        <label>Felleskostnader per måned:</label>
+        <input type="number" name="common_costs" required>
+
+        <label>Vedlikeholdskostnader per måned:</label>
+        <input type="number" name="maintenance_costs" required>
+
+        <label>Andre driftskostnader per måned:</label>
+        <input type="number" name="other_costs" required>
+
+        <label>Egenkapital investert:</label>
+        <input type="number" name="equity" required>
+
+        <label>Skattesats (%):</label>
+        <input type="number" name="tax_rate">
+        <input type="checkbox" name="include_tax"> Inkluder skatt
+
+        <label>Inflasjonsrate (%):</label>
+        <input type="number" name="inflation_rate">
+        <label>Antall år:</label>
+        <input type="number" name="years">
+        <input type="checkbox" name="include_inflation"> Inkluder inflasjon
+
+        <button type="submit">Beregn</button>
+    </form>
+
+    {% if gross_yield %}
+    <div class="result">
+        <h3>Resultater:</h3>
+        <p>Brutto yield: {{ gross_yield }}%</p>
+        <p>Netto yield: {{ net_yield }}%</p>
+        <p>Årlig ROI: {{ roi }}%</p>
+        {% if inflation_adjusted_roi %}
+        <p>Inflasjonsjustert ROI: {{ inflation_adjusted_roi }}%</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="result" style="background-color: red; color: white;">
+        <p>{{ error }}</p>
+    </div>
+    {% endif %}
+</body>
+</html>
