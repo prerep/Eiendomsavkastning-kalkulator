@@ -20,9 +20,9 @@ def calculate():
         maintenance_costs = float(request.form["maintenance_costs"]) * 12
         other_costs = float(request.form["other_costs"]) * 12
         equity = float(request.form["equity"])
-        tax_rate = float(request.form["tax_rate"]) / 100
-        inflation_rate = float(request.form["inflation_rate"]) / 100
-        years = int(request.form["years"])
+        tax_rate = float(request.form["tax_rate"]) / 100 if request.form["tax_rate"] else 0
+        inflation_rate = float(request.form["inflation_rate"]) / 100 if request.form["inflation_rate"] else 0
+        years = int(request.form["years"]) if request.form["years"] else 0
 
         # Beregninger
         annual_expenses = common_costs + maintenance_costs + other_costs
@@ -43,7 +43,8 @@ def calculate():
             adjusted_price = purchase_price * ((1 + inflation_rate) ** years)
             inflation_adjusted_roi = (net_income / adjusted_price) * 100
 
-        return render_template("index.html", gross_yield=round(gross_yield, 2),
+        return render_template("index.html",
+                               gross_yield=round(gross_yield, 2),
                                net_yield=round(net_yield, 2),
                                roi=round(roi, 2),
                                inflation_adjusted_roi=round(inflation_adjusted_roi, 2))
@@ -66,18 +67,25 @@ def fetch_finn():
         soup = BeautifulSoup(response.text, "html.parser")
 
         # Finn kjøpspris
-        price_text = soup.find(string=re.compile("kr"))
+        price_text = soup.find(string=re.compile(r"\d+\s*\d+ kr"))  # Søker etter tall med "kr"
         price = int(re.sub(r"\D", "", price_text)) if price_text else ""
 
         # Finn felleskostnader
         common_costs = ""
+        possible_labels = ["Felleskostnader", "Fellesutgifter"]  # Noen annonser bruker andre ord
         for label in soup.find_all("dt"):
-            if "Felleskostnader" in label.get_text():
-                common_costs = label.find_next("dd").get_text()
-                common_costs = int(re.sub(r"\D", "", common_costs)) if common_costs else ""
+            if any(term in label.get_text() for term in possible_labels):
+                value = label.find_next("dd").get_text()
+                common_costs = int(re.sub(r"\D", "", value)) if value else ""
                 break
 
-        return render_template("index.html", fetched_price=price, fetched_common_costs=common_costs)
+        # Beregn egenkapital (EK = 10% av kjøpsprisen)
+        fetched_equity = price * 0.10 if price else ""
+
+        return render_template("index.html",
+                               fetched_price=price,
+                               fetched_common_costs=common_costs,
+                               fetched_equity=fetched_equity)
 
     except Exception as e:
         return render_template("index.html", error=f"Feil ved henting: {str(e)}")
